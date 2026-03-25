@@ -31,6 +31,16 @@ class SyncExchangeRateResponse(BaseModel):
     rate_count: int
 
 
+class BackfillExchangeRateResponse(BaseModel):
+    message: str
+    source: str
+    start_date: date
+    end_date: date
+    saved_days: int
+    saved_rates: int
+    skipped_days: int
+
+
 class CurrencyHistoryItem(BaseModel):
     announcement_date: date
     cur_unit: str

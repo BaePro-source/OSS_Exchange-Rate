@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from backend.app.db.database import get_db
 from backend.app.repositories.exchange_rate_repository import ExchangeRateRepository
 from backend.app.schemas.exchange_rate import (
+    BackfillExchangeRateResponse,
     ConfigStatusResponse,
     CurrencyHistoryItem,
     CurrencyHistoryResponse,
@@ -12,6 +13,7 @@ from backend.app.schemas.exchange_rate import (
     SyncExchangeRateResponse,
 )
 from backend.app.services.exchange_rate_service import ExchangeRateService
+from datetime import date, timedelta
 
 router = APIRouter()
 
@@ -69,6 +71,58 @@ def sync_latest_rates(db: Session = Depends(get_db)) -> SyncExchangeRateResponse
         source=snapshot.source,
         announcement_date=snapshot.announcement_date,
         rate_count=len(snapshot.rates),
+    )
+
+
+@router.post("/backfill", response_model=BackfillExchangeRateResponse)
+def backfill_rates(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+) -> BackfillExchangeRateResponse:
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="시작일은 종료일보다 이후일 수 없습니다.")
+
+    service = ExchangeRateService()
+    repository = ExchangeRateRepository(db)
+
+    saved_days = 0
+    saved_rates = 0
+    skipped_days = 0
+    cursor = start_date
+
+    while cursor <= end_date:
+        try:
+            rates = service.fetch_by_date(cursor)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"{cursor.isoformat()} 환율 조회 중 오류가 발생했습니다: {exc}",
+            ) from exc
+
+        if rates:
+            snapshot = repository.save_snapshot(
+                announcement_date=cursor,
+                source="koreaexim",
+                rates=rates,
+            )
+            saved_days += 1
+            saved_rates += len(snapshot.rates)
+        else:
+            skipped_days += 1
+
+        cursor += timedelta(days=1)
+
+    return BackfillExchangeRateResponse(
+        message="기간 환율 적재가 완료되었습니다.",
+        source="koreaexim",
+        start_date=start_date,
+        end_date=end_date,
+        saved_days=saved_days,
+        saved_rates=saved_rates,
+        skipped_days=skipped_days,
     )
 
 

@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import time
 
 import requests
 
@@ -25,17 +26,28 @@ class ExchangeRateService:
             return None
 
     def _request_rates(self, search_date: date) -> list[dict]:
-        response = requests.get(
-            self.base_url,
-            params={
-                "authkey": self.api_key,
-                "searchdate": search_date.strftime("%Y%m%d"),
-                "data": "AP01",
-            },
-            timeout=10,
-        )
-        response.raise_for_status()
-        return response.json()
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                response = requests.get(
+                    self.base_url,
+                    params={
+                        "authkey": self.api_key,
+                        "searchdate": search_date.strftime("%Y%m%d"),
+                        "data": "AP01",
+                    },
+                    timeout=20,
+                )
+                response.raise_for_status()
+                return response.json()
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt < 2:
+                    time.sleep(1.2)
+
+        if last_error is not None:
+            raise last_error
+        return []
 
     def fetch_latest_available(self, lookback_days: int = 10) -> tuple[date, list[dict]]:
         if not self.api_key:
@@ -61,6 +73,27 @@ class ExchangeRateService:
                     return target_date, normalized
 
         raise ValueError("No exchange rate data was returned for the recent dates checked.")
+
+    def fetch_by_date(self, target_date: date) -> list[dict]:
+        if not self.api_key:
+            raise ValueError("KOREA_EXIM_API_KEY is not configured.")
+
+        payload = self._request_rates(target_date)
+        if not isinstance(payload, list) or not payload or not isinstance(payload[0], dict):
+            return []
+
+        normalized = [
+            {
+                "cur_unit": item.get("cur_unit", "").strip(),
+                "cur_nm": item.get("cur_nm", "").strip(),
+                "deal_bas_r": self._parse_rate_value(item.get("deal_bas_r")),
+                "ttb": self._parse_rate_value(item.get("ttb")),
+                "tts": self._parse_rate_value(item.get("tts")),
+            }
+            for item in payload
+            if item.get("cur_unit")
+        ]
+        return normalized
 
     def get_config_status(self) -> dict[str, str | bool]:
         return {
