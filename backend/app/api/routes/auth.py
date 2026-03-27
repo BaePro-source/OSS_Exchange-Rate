@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 
 from backend.app.db.database import get_db
 from backend.app.repositories.user_repository import UserRepository
-from backend.app.schemas.user import UserAuthResponse, UserLoginRequest, UserSignupRequest
+from backend.app.schemas.user import (
+    UserAuthResponse,
+    UserLoginRequest,
+    UserLogoutResponse,
+    UserSignupRequest,
+)
 from backend.app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -43,3 +48,8 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db)) -> UserAuthR
         email=user.email,
         created_at=user.created_at,
     )
+
+
+@router.post("/logout", response_model=UserLogoutResponse)
+def logout() -> UserLogoutResponse:
+    return UserLogoutResponse(message="로그아웃되었습니다.")

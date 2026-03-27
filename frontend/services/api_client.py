@@ -95,3 +95,21 @@ def login_user(email: str, password: str) -> dict:
             except ValueError:
                 detail = exc.response.text
         return {"message": "login_failed", "detail": detail or str(exc)}
+
+
+def logout_user() -> dict:
+    try:
+        response = requests.post(
+            f"{BACKEND_ROOT_URL}/api/v1/auth/logout",
+            timeout=5,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        detail = ""
+        if exc.response is not None:
+            try:
+                detail = exc.response.json().get("detail", "")
+            except ValueError:
+                detail = exc.response.text
+        return {"message": "logout_failed", "detail": detail or str(exc)}
