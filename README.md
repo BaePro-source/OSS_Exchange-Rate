@@ -36,6 +36,30 @@
 
 `uv`가 설치되어 있다면 아래 순서로 실행할 수 있습니다.
 
+## Requirements
+
+필수로 필요한 패키지/런타임은 아래와 같습니다.
+
+- Python `>= 3.13`
+- `uv`
+
+프로젝트 의존성 목록:
+
+- `fastapi`
+- `httpx`
+- `pandas`
+- `pydantic-settings`
+- `requests`
+- `sqlalchemy`
+- `streamlit`
+- `uvicorn[standard]`
+
+`uv sync`로 위 패키지가 자동 설치됩니다.
+
+## Run
+
+아래 명령으로 바로 실행할 수 있습니다. (터미널 2개 권장)
+
 ```bash
 uv sync
 cp .env.example .env
