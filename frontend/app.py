@@ -14,6 +14,7 @@ from frontend.services.api_client import (
     get_currency_history,
     get_latest_rates,
     login_user,
+    logout_user,
     signup_user,
     sync_latest_rates,
 )
@@ -208,6 +209,12 @@ def show_dashboard() -> None:
         st.write("")
         st.write(f"로그인 사용자: {st.session_state.auth_user.get('name', '')}")
         if st.button("로그아웃", use_container_width=True):
+            result = logout_user()
+            if result.get("message") == "logout_failed":
+                st.warning(result.get("detail", "로그아웃 요청에 실패했습니다."))
+            else:
+                st.success("로그아웃되었습니다.")
+
             st.session_state.auth_user = None
             st.session_state.auth_mode = "login"
             st.rerun()

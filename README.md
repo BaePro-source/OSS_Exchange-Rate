@@ -1,78 +1,113 @@
 # Exchange Rate Dashboard
 
-한국수출입은행 환율 정보를 기반으로 실시간 변동 사항을 보여주기 위한 Full-Stack 프로젝트 초기 구조입니다.
+한국수출입은행 환율 데이터를 기반으로 한 Full-Stack 환율 대시보드 프로젝트입니다.
 
-## Stack
-
-- Frontend: Streamlit
 - Backend: FastAPI
-- Database: SQLite3
-- Package / Python version management: uv
+- Frontend: Streamlit
+- DB: SQLite
+- ORM: SQLAlchemy
+- Settings: pydantic-settings
+- HTTP 클라이언트: requests
+- Dev tool: uv (uv run / uv sync)
 
-## Project Structure
+## 프로젝트 구조
 
 ```text
 .
 |-- backend/
 |   |-- app/
-|   |   |-- api/
-|   |   |-- core/
-|   |   |-- db/
-|   |   |-- models/
-|   |   `-- services/
-|   |-- data/
-|   `-- main.py
+|   |   |-- api/           # REST API 라우터
+|   |   |-- core/          # 설정
+|   |   |-- db/            # DB 초기화, 세션
+|   |   |-- models/        # SQLAlchemy 모델
+|   |   |-- repositories/  # DB CRUD 로직
+|   |   |-- schemas/       # Pydantic DTO
+|   |   `-- services/      # 외부 API 연동 및 비즈니스 로직
+|   |-- data/              # SQLite DB 파일 경로
+|   `-- main.py            # FastAPI 앱 진입점
 |-- frontend/
-|   |-- components/
-|   |-- pages/
-|   |-- services/
-|   `-- app.py
+|   |-- app.py             # Streamlit 메인 앱
+|   |-- components/        # 구성 요소 (현재 비어있음)
+|   `-- services/          # 백엔드 호출용 API 클라이언트
 |-- .env.example
-|-- .python-version
 `-- pyproject.toml
 ```
 
-## Quick Start
+## 기능 요약
 
-`uv`가 설치되어 있다면 아래 순서로 실행할 수 있습니다.
+1. 회원 인증
+   - `POST /api/v1/auth/signup`
+   - `POST /api/v1/auth/login`
+   - `POST /api/v1/auth/logout`
+2. 환율 수집 & 상태
+   - `GET /api/v1/rates/config-status`
+   - `POST /api/v1/rates/sync`
+   - `POST /api/v1/rates/backfill` (기간 단위 환율 적재)
+3. 환율 조회
+   - `GET /api/v1/rates/latest`
+   - `GET /api/v1/rates/history/{cur_unit}?limit=30`
+4. 헬스 체크
+   - `GET /api/v1/health`
+5. Streamlit 대시보드
+   - 로그인/회원가입 UI
+   - 최신 환율 조회 및 저장 버튼
+   - 통화별 히스토리 차트 & 지도 시각화
+
+## 필수 환경
+
+- Python >= 3.13
+- `.venv` 가상환경 (권장)
+- `uv` (uv run, uv sync)
+
+## 설치 및 실행
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install uv
 uv sync
 cp .env.example .env
+# 백엔드 실행
 uv run uvicorn backend.main:app --reload
+# 다른 터미널에서 프론트엔드 실행
 uv run streamlit run frontend/app.py
 ```
 
-## Environment Variables
+## 환경 변수
 
-프로젝트 루트의 `.env` 파일에 API 키를 넣으면 됩니다. 이 파일은 `.gitignore`에 포함되어 Git에 올라가지 않습니다.
+`.env`:
 
 ```bash
 KOREA_EXIM_API_KEY=발급받은_API_KEY
 EXCHANGE_DB_PATH=backend/data/exchange_rates.db
 ```
 
-## SQLite Schema
+추가 설정 (선택)
 
-현재 DB 구조는 아래처럼 두 테이블로 나뉩니다.
+```bash
+BACKEND_HOST=127.0.0.1
+BACKEND_PORT=8000
+FRONTEND_HOST=127.0.0.1
+FRONTEND_PORT=8501
+```
 
-- `exchange_rate_snapshots`: 데이터를 수집한 날짜/시점
-- `exchange_rates`: 해당 시점에 포함된 개별 통화 환율
+## DB 스키마 (현재 구현)
 
-이렇게 나누는 이유는 한 번 API를 호출할 때 여러 통화가 함께 오기 때문입니다. 즉 "수집 이벤트 1건"과 "그 안의 환율 목록 여러 건"을 분리해서 저장하는 구조입니다.
+- `exchange_rate_snapshots`: API 호출 일자/소스/저장 시각
+- `exchange_rates`: `exchange_rate_snapshots` FK, 통화코드, 통화명, 매매기준율, TTB, TTS
+- `users`: 아이디/이름/이메일/비밀번호 해시/생성일
 
-## Next Step
+## 개발 팁
 
-- 한국수출입은행 Open API 연동
-- 환율 이력 저장용 SQLite 스키마 작성
-- Streamlit 실시간 대시보드 구성
+- API 키를 못 넣었을 때 `GET /api/v1/rates/config-status` 로 상태 확인
+- 이미 가입된 이메일로 `POST /api/v1/auth/signup` 시 409 반환
+- `POST /api/v1/rates/sync` 는 최근 10일 내에서 가장 최신 데이터를 자동 조회
+- `POST /api/v1/rates/backfill` 로 날짜 범위 데이터를 일괄 채움
 
-## Implemented API Endpoints
+## 현재 완료 상태
 
-- `GET /api/v1/health`
-- `GET /api/v1/rates/config-status`
-- `POST /api/v1/rates/sync`
-- `GET /api/v1/rates/latest`
-- `GET /api/v1/rates/history/{cur_unit}?limit=30`
-
-`POST /api/v1/rates/sync`는 오늘 날짜를 우선 조회하고, 데이터가 없으면 최근 날짜를 최대 10일 전까지 거슬러 올라가며 가장 최신 환율 데이터를 저장합니다.
+- FastAPI 백엔드 CRUD 및 API 완료
+- Streamlit 대시보드 구현 완료
+- 회원가입/로그인/로그아웃 기능 완성
+- 한국수출입은행 Open API 기반 환율 수집 기능 구현

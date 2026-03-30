@@ -36,3 +36,7 @@ class UserAuthResponse(BaseModel):
     name: str
     email: str
     created_at: datetime
+
+
+class UserLogoutResponse(BaseModel):
+    message: str
