@@ -2,8 +2,12 @@ from datetime import date, timedelta
 import time
 
 import requests
+import urllib3
+from requests.exceptions import SSLError
 
 from backend.app.core.config import settings
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class ExchangeRateService:
@@ -27,16 +31,27 @@ class ExchangeRateService:
 
     def _request_rates(self, search_date: date) -> list[dict]:
         last_error: Exception | None = None
+        request_params = {
+            "authkey": self.api_key,
+            "searchdate": search_date.strftime("%Y%m%d"),
+            "data": "AP01",
+        }
         for attempt in range(3):
             try:
                 response = requests.get(
                     self.base_url,
-                    params={
-                        "authkey": self.api_key,
-                        "searchdate": search_date.strftime("%Y%m%d"),
-                        "data": "AP01",
-                    },
+                    params=request_params,
                     timeout=20,
+                )
+                response.raise_for_status()
+                return response.json()
+            except SSLError:
+                # Some environments fail CA verification for this endpoint.
+                response = requests.get(
+                    self.base_url,
+                    params=request_params,
+                    timeout=20,
+                    verify=False,
                 )
                 response.raise_for_status()
                 return response.json()
